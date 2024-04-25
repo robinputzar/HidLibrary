@@ -22,7 +22,7 @@ namespace HidLibrary
 
         public void Init()
         {
-#if NET20 || NET35 || NET5_0_OR_GREATER
+#if NET20 || NET35 || NETCOREAPP1_0_OR_GREATER
             Task task = Task.Factory.StartNew(() => DeviceEventMonitor());
 #else
              var eventMonitor = new Action(DeviceEventMonitor);
