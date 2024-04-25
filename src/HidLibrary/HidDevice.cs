@@ -146,17 +146,26 @@ namespace HidLibrary
 
         public void Read(ReadCallback callback, int timeout)
         {
+#if NETCOREAPP1_0_OR_GREATER
+            // start new task with Read() and call callback afterwards
+            Task<HidDeviceData> readTask = Task.Run(() => Read(timeout));
+            readTask.ContinueWith(task => callback.Invoke(task.Result));
+#else
+            // Note: delegate BeginInvoke calls are not supported in .NET Core and later (includes .NET 5 and above),
+            // see e.g. https://devblogs.microsoft.com/dotnet/migrating-delegate-begininvoke-calls-for-net-core/
+
             var readDelegate = new ReadDelegate(Read);
             var asyncState = new HidAsyncState(readDelegate, callback);
             readDelegate.BeginInvoke(timeout, EndRead, asyncState);
+#endif
         }
 
         public async Task<HidDeviceData> ReadAsync(int timeout = 0)
         {
-            var readDelegate = new ReadDelegate(Read);
-#if NET20 || NET35 || NET5_0_OR_GREATER
-            return await Task<HidDeviceData>.Factory.StartNew(() => readDelegate.Invoke(timeout));
+#if NET20 || NET35 || NETCOREAPP1_0_OR_GREATER
+            return await Task<HidDeviceData>.Factory.StartNew(() => Read(timeout));
 #else
+            var readDelegate = new ReadDelegate(Read);
             return await Task<HidDeviceData>.Factory.FromAsync(readDelegate.BeginInvoke, readDelegate.EndInvoke, timeout, null);
 #endif
         }
@@ -178,17 +187,23 @@ namespace HidLibrary
 
         public void ReadReport(ReadReportCallback callback, int timeout)
         {
+#if NETCOREAPP1_0_OR_GREATER
+            // start new task with ReadReport() and call callback afterwards
+            Task<HidReport> readReportTask = Task.Run(() => ReadReport(timeout));
+            readReportTask.ContinueWith(task => callback.Invoke(task.Result));
+#else
             var readReportDelegate = new ReadReportDelegate(ReadReport);
             var asyncState = new HidAsyncState(readReportDelegate, callback);
             readReportDelegate.BeginInvoke(timeout, EndReadReport, asyncState);
+#endif
         }
 
         public async Task<HidReport> ReadReportAsync(int timeout = 0)
         {
-            var readReportDelegate = new ReadReportDelegate(ReadReport);
-#if NET20 || NET35 || NET5_0_OR_GREATER
-            return await Task<HidReport>.Factory.StartNew(() => readReportDelegate.Invoke(timeout));
+#if NET20 || NET35 || NETCOREAPP1_0_OR_GREATER
+            return await Task<HidReport>.Factory.StartNew(() => ReadReport(timeout));
 #else
+            var readReportDelegate = new ReadReportDelegate(ReadReport);
             return await Task<HidReport>.Factory.FromAsync(readReportDelegate.BeginInvoke, readReportDelegate.EndInvoke, timeout, null);
 #endif
         }
@@ -361,17 +376,23 @@ namespace HidLibrary
 
         public void Write(byte[] data, WriteCallback callback, int timeout)
         {
+#if NETCOREAPP1_0_OR_GREATER
+            // start new task with Write() and call callback afterwards
+            Task<bool> writeTask = Task.Run(() => Write(data, timeout));
+            writeTask.ContinueWith(task => callback.Invoke(task.Result));
+#else
             var writeDelegate = new WriteDelegate(Write);
             var asyncState = new HidAsyncState(writeDelegate, callback);
             writeDelegate.BeginInvoke(data, timeout, EndWrite, asyncState);
+#endif
         }
 
         public async Task<bool> WriteAsync(byte[] data, int timeout = 0)
         {
-            var writeDelegate = new WriteDelegate(Write);
-#if NET20 || NET35 || NET5_0_OR_GREATER
-            return await Task<bool>.Factory.StartNew(() => writeDelegate.Invoke(data, timeout));
+#if NET20 || NET35 || NETCOREAPP1_0_OR_GREATER
+            return await Task<bool>.Factory.StartNew(() => Write(data, timeout));
 #else
+            var writeDelegate = new WriteDelegate(Write);
             return await Task<bool>.Factory.FromAsync(writeDelegate.BeginInvoke, writeDelegate.EndInvoke, data, timeout, null);
 #endif
         }
@@ -393,9 +414,15 @@ namespace HidLibrary
 
         public void WriteReport(HidReport report, WriteCallback callback, int timeout)
         {
+#if NETCOREAPP1_0_OR_GREATER
+            // start new task with WriteReport() and call callback afterwards
+            Task<bool> writeReportTask = Task.Run(() => WriteReport(report, timeout));
+            writeReportTask.ContinueWith(task => callback.Invoke(task.Result));
+#else
             var writeReportDelegate = new WriteReportDelegate(WriteReport);
             var asyncState = new HidAsyncState(writeReportDelegate, callback);
             writeReportDelegate.BeginInvoke(report, timeout, EndWriteReport, asyncState);
+#endif
         }
 
         /// <summary>
@@ -419,10 +446,10 @@ namespace HidLibrary
 
         public async Task<bool> WriteReportAsync(HidReport report, int timeout = 0)
         {
-            var writeReportDelegate = new WriteReportDelegate(WriteReport);
-#if NET20 || NET35 || NET5_0_OR_GREATER
-            return await Task<bool>.Factory.StartNew(() => writeReportDelegate.Invoke(report, timeout));
+#if NET20 || NET35 || NETCOREAPP1_0_OR_GREATER
+            return await Task<bool>.Factory.StartNew(() => WriteReport(report, timeout));
 #else
+            var writeReportDelegate = new WriteReportDelegate(WriteReport);
             return await Task<bool>.Factory.FromAsync(writeReportDelegate.BeginInvoke, writeReportDelegate.EndInvoke, report, timeout, null);
 #endif
         }
@@ -465,6 +492,11 @@ namespace HidLibrary
             return success;
         }
 
+#if !NETCOREAPP1_0_OR_GREATER
+        // callbacks provided to delegate BeginInvoke
+        // no longer needed for .NET Core and later (includes .NET 5 and above) since BeginInvoke and EndInvoke
+        // delegate calls are not supported, and Task<> is used instead
+
         protected static void EndRead(IAsyncResult ar)
         {
             var hidAsyncState = (HidAsyncState)ar.AsyncState;
@@ -504,6 +536,7 @@ namespace HidLibrary
 
             if ((callbackDelegate != null)) callbackDelegate.Invoke(result);
         }
+#endif
 
         private byte[] CreateInputBuffer()
         {
